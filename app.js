@@ -114,7 +114,8 @@ function format(value, code) {
   if (!Number.isFinite(value)) return '—';
   return new Intl.NumberFormat('en', {
     minimumFractionDigits: 0,
-    maximumFractionDigits: Math.abs(value) < 1 && value !== 0 ? 4 : fractionDigits(code),
+    // Small amounts get extra precision; from 100,000 up, cents are just noise.
+    maximumFractionDigits: Math.abs(value) >= 1e5 ? 0 : Math.abs(value) < 1 && value !== 0 ? 4 : fractionDigits(code),
   }).format(value);
 }
 
@@ -158,19 +159,31 @@ function createRow(code) {
   return row;
 }
 
+// Shrinks a number's font until it fits its row, so long amounts are never cut off.
+const MIN_FONT_PX = 14;
+function setValue(el, text) {
+  el.textContent = text;
+  el.style.fontSize = '';
+  const overflow = el.scrollWidth / el.clientWidth;
+  if (overflow > 1) {
+    const max = parseFloat(getComputedStyle(el).fontSize);
+    el.style.fontSize = `${Math.max(MIN_FONT_PX, Math.floor((max / overflow) * 0.97))}px`;
+  }
+}
+
 // Rolls a number from its previous value to the new one.
 function tweenTo(el, target, code) {
   const from = el._n;
   el._n = target;
   cancelAnimationFrame(el._raf);
   if (reducedMotion || !Number.isFinite(target) || !Number.isFinite(from) || from === target) {
-    el.textContent = format(target, code);
+    setValue(el, format(target, code));
     return;
   }
   const start = performance.now();
   const step = (now) => {
     const p = Math.min(1, (now - start) / 380);
-    el.textContent = format(from + (target - from) * (1 - (1 - p) ** 3), code);
+    setValue(el, format(from + (target - from) * (1 - (1 - p) ** 3), code));
     if (p < 1) el._raf = requestAnimationFrame(step);
   };
   el._raf = requestAnimationFrame(step);
@@ -209,7 +222,7 @@ function render() {
     if (isActive) {
       cancelAnimationFrame(valueEl._raf);
       valueEl._n = amount;
-      valueEl.textContent = state.expr && !hasOp ? prettyExpr(state.expr) : format(amount, code);
+      setValue(valueEl, state.expr && !hasOp ? prettyExpr(state.expr) : format(amount, code));
       exprEl.textContent = hasOp ? prettyExpr(state.expr) : '';
     } else {
       exprEl.textContent = '';
@@ -353,6 +366,10 @@ document.getElementById('search').oninput = (e) => renderPicker(e.target.value);
 document.getElementById('rates-status').onclick = () => refreshRates(true);
 
 // Re-check location and rates whenever the app comes back to the foreground.
+// Re-fit numbers when the screen size changes (rotation, font load).
+addEventListener('resize', () => document.querySelectorAll('.row .value').forEach((el) => setValue(el, el.textContent)));
+document.fonts?.ready.then(() => dispatchEvent(new Event('resize')));
+
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   detectLocalCurrency();
