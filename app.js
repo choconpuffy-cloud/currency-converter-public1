@@ -7,7 +7,7 @@ const REFRESH_AFTER_MS = 6 * 3600e3;
 const STALE_AFTER_MS = 3 * 86400e3;
 const GPS_TTL_MS = 12 * 3600e3;
 const DEFAULT_SAVED = ['VND', 'USD'];
-const APP_VERSION = 6; // shown in Edit mode; bump with the CACHE name in sw.js
+const APP_VERSION = 7; // shown in Edit mode; bump with the CACHE name in sw.js
 
 // ---------- storage (best effort: private mode can throw) ----------
 const store = {
@@ -35,6 +35,7 @@ const state = {
   active: store.get('cc.active', DEFAULT_SAVED[0]),
   expr: '',
   editing: false,
+  layout: store.get('cc.layout', 'list'), // 'list' or 'bubbles'
 };
 
 // ---------- location ----------
@@ -148,6 +149,7 @@ function createRow(code) {
   const row = document.createElement('div');
   row.className = 'row entering';
   row.dataset.code = code;
+  row.style.viewTransitionName = `row-${code}`; // lets rows morph when the layout changes
   row.innerHTML = `
     <span class="flag">${flagFor(code)}</span>
     <div class="meta">
@@ -231,12 +233,17 @@ function render() {
     }
   });
 
+  rows.style.setProperty('--cols', codes.length >= 5 ? 3 : 2);
+  rows.classList.toggle('three', codes.length >= 5);
+  document.body.classList.toggle('bubbles', state.layout === 'bubbles');
+  document.getElementById('layout-btn').innerHTML = state.layout === 'bubbles' ? ICON_LIST : ICON_BUBBLES;
+
   document.getElementById('clear-key').textContent = state.expr ? 'C' : 'AC';
   document.body.classList.toggle('editing', state.editing);
   document.getElementById('edit-btn').textContent = state.editing ? 'Done' : 'Edit';
 
   if (state.editing) {
-    setStatus(`App version ${APP_VERSION}`);
+    setStatus(`Drag to reorder · v${APP_VERSION}`);
   } else if (state.rates) {
     const age = Date.now() - state.rates.updated;
     const when = new Date(state.rates.updated).toLocaleDateString('en', { month: 'short', day: 'numeric' });
@@ -355,6 +362,14 @@ document.getElementById('rows').addEventListener('click', (e) => {
     const value = convert(evaluate(state.expr), state.active, code);
     state.expr = state.expr && Number.isFinite(value) ? toPlain(value, code) : '';
     state.active = code;
+    // In bubbles the active one grows, so let the others glide to their new spots.
+    if (state.layout === 'bubbles' && document.startViewTransition && !reducedMotion) {
+      document.startViewTransition(() => {
+        render();
+        refitAll();
+      });
+      return;
+    }
   }
   render();
 });
@@ -364,15 +379,120 @@ document.getElementById('edit-btn').onclick = () => {
   render();
 };
 document.getElementById('add-btn').onclick = openPicker;
+
+// ---------- layout switch (cards <-> bubbles) ----------
+const ICON_LIST = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><rect x="3" y="4" width="18" height="4" rx="2"/><rect x="3" y="10" width="18" height="4" rx="2"/><rect x="3" y="16" width="18" height="4" rx="2"/></svg>';
+const ICON_BUBBLES = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><circle cx="7" cy="7" r="4"/><circle cx="17" cy="7" r="4"/><circle cx="7" cy="17" r="4"/><circle cx="17" cy="17" r="4"/></svg>';
+
+document.getElementById('layout-btn').onclick = () => {
+  state.layout = state.layout === 'bubbles' ? 'list' : 'bubbles';
+  store.set('cc.layout', state.layout);
+  const apply = () => {
+    render();
+    refitAll();
+  };
+  // Safari 18+ morphs each card into its bubble; older browsers just switch.
+  if (document.startViewTransition && !reducedMotion) document.startViewTransition(apply);
+  else apply();
+};
+
+// ---------- drag to reorder (Edit mode) ----------
+// The auto-detected local currency stays pinned on top until you tap Keep.
+const isDraggable = (row) => row && !row.classList.contains('leaving') && row.classList.contains('is-saved');
+
+// Animates rows from where they were to where they are now (FLIP), using the
+// `translate` property so it doesn't fight the wiggle animation's `transform`.
+function flip(mutate, skip) {
+  const rows = [...document.querySelectorAll('#rows .row')];
+  const before = new Map(rows.map((r) => [r, r.getBoundingClientRect()]));
+  mutate();
+  for (const r of rows) {
+    if (r === skip) continue;
+    const a = before.get(r), b = r.getBoundingClientRect();
+    const dx = a.left - b.left, dy = a.top - b.top;
+    if (!dx && !dy) continue;
+    r.style.transition = 'none';
+    r.style.translate = `${dx}px ${dy}px`;
+    // While a row slides into place it can pass back under the finger; ignore it as a
+    // drop target until it settles, or the two rows would keep swapping.
+    r.dataset.flipping = '1';
+    clearTimeout(r._flipTimer);
+    r._flipTimer = setTimeout(() => delete r.dataset.flipping, 320);
+    requestAnimationFrame(() => {
+      r.style.transition = 'translate .3s cubic-bezier(.2, .9, .3, 1.2)';
+      r.style.translate = '';
+    });
+  }
+}
+
+let drag = null;
+const rowsEl = document.getElementById('rows');
+
+rowsEl.addEventListener('pointerdown', (e) => {
+  if (!state.editing || e.target.closest('button')) return;
+  const row = e.target.closest('.row');
+  if (!isDraggable(row)) return;
+  const r = row.getBoundingClientRect();
+  drag = { row, id: e.pointerId, grabX: e.clientX - r.left, grabY: e.clientY - r.top, started: false, x0: e.clientX, y0: e.clientY };
+  row.setPointerCapture(e.pointerId);
+});
+
+rowsEl.addEventListener('pointermove', (e) => {
+  if (!drag || e.pointerId !== drag.id) return;
+  const { row } = drag;
+  if (!drag.started) {
+    if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 4) return;
+    drag.started = true;
+    row.classList.add('dragging');
+  }
+  // Where the row would sit without any offset, then offset it to follow the finger.
+  const place = () => {
+    row.style.translate = '';
+    const r = row.getBoundingClientRect();
+    row.style.translate = `${e.clientX - drag.grabX - r.left}px ${e.clientY - drag.grabY - r.top}px`;
+  };
+  place();
+
+  row.style.pointerEvents = 'none';
+  const target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.row');
+  row.style.pointerEvents = '';
+  if (target && target !== row && isDraggable(target) && !target.dataset.flipping) {
+    const all = [...rowsEl.children];
+    const after = all.indexOf(row) < all.indexOf(target);
+    flip(() => rowsEl.insertBefore(row, after ? target.nextSibling : target), row);
+    place();
+  }
+
+  // Scroll the list when dragging near its top or bottom edge.
+  const box = rowsEl.getBoundingClientRect();
+  if (e.clientY < box.top + 40) rowsEl.scrollBy(0, -8);
+  else if (e.clientY > box.bottom - 40) rowsEl.scrollBy(0, 8);
+});
+
+function endDrag(e) {
+  if (!drag || e.pointerId !== drag.id) return;
+  const { row, started } = drag;
+  drag = null;
+  if (!started) return;
+  row.classList.remove('dragging');
+  row.style.transition = 'translate .35s cubic-bezier(.2, .9, .3, 1.2)';
+  row.style.translate = '';
+  const order = [...rowsEl.children].filter((r) => !r.classList.contains('leaving')).map((r) => r.dataset.code);
+  state.saved = order.filter((c) => state.saved.includes(c));
+  store.set('cc.saved', state.saved);
+}
+rowsEl.addEventListener('pointerup', endDrag);
+rowsEl.addEventListener('pointercancel', endDrag);
 document.getElementById('picker-close').onclick = closePicker;
 document.getElementById('search').oninput = (e) => renderPicker(e.target.value);
 document.getElementById('rates-status').onclick = () => refreshRates(true);
 
-// Re-check location and rates whenever the app comes back to the foreground.
 // Re-fit numbers when the screen size changes (rotation, font load).
-addEventListener('resize', () => document.querySelectorAll('.row .value').forEach((el) => setValue(el, el.textContent)));
+const refitAll = () => document.querySelectorAll('.row .value').forEach((el) => setValue(el, el.textContent));
+addEventListener('resize', refitAll);
 document.fonts?.ready.then(() => dispatchEvent(new Event('resize')));
 
+// Re-check location and rates whenever the app comes back to the foreground.
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   detectLocalCurrency();
