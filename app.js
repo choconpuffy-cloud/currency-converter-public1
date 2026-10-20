@@ -7,6 +7,7 @@ const REFRESH_AFTER_MS = 6 * 3600e3;
 const STALE_AFTER_MS = 3 * 86400e3;
 const GPS_TTL_MS = 12 * 3600e3;
 const DEFAULT_SAVED = ['VND', 'USD'];
+const APP_VERSION = 6; // shown in Edit mode; bump with the CACHE name in sw.js
 
 // ---------- storage (best effort: private mode can throw) ----------
 const store = {
@@ -234,7 +235,9 @@ function render() {
   document.body.classList.toggle('editing', state.editing);
   document.getElementById('edit-btn').textContent = state.editing ? 'Done' : 'Edit';
 
-  if (state.rates) {
+  if (state.editing) {
+    setStatus(`App version ${APP_VERSION}`);
+  } else if (state.rates) {
     const age = Date.now() - state.rates.updated;
     const when = new Date(state.rates.updated).toLocaleDateString('en', { month: 'short', day: 'numeric' });
     setStatus(`Rates as of ${when}${age > STALE_AFTER_MS ? ' · tap to update' : ''}`, age > STALE_AFTER_MS);
@@ -377,7 +380,16 @@ document.addEventListener('visibilitychange', () => {
   refreshRates();
 });
 
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => {});
+  // When a new version takes over, reload once so you see it right away.
+  let reloaded = !navigator.serviceWorker.controller; // first install: nothing old to replace
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloaded) return;
+    reloaded = true;
+    location.reload();
+  });
+}
 
 detectLocalCurrency();
 render();
