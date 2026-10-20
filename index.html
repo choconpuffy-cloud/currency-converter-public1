@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Converter">
+  <meta name="theme-color" content="#000000">
+  <title>Multi Currency</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <button id="edit-btn" class="text-btn">Edit</button>
+    <button id="rates-status" class="status"></button>
+    <button id="add-btn" class="text-btn" aria-label="Add currency">＋</button>
+  </header>
+
+  <main id="rows"></main>
+
+  <section id="keypad">
+    <button data-k="C" class="fn" id="clear-key">AC</button>
+    <button data-k="⌫" class="fn">⌫</button>
+    <button data-k="%" class="fn">%</button>
+    <button data-k="÷" class="op">÷</button>
+    <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+    <button data-k="×" class="op">×</button>
+    <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+    <button data-k="−" class="op">−</button>
+    <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+    <button data-k="+" class="op">+</button>
+    <button data-k="000">000</button><button data-k="0">0</button><button data-k=".">.</button>
+    <button data-k="=" class="op">=</button>
+  </section>
+
+  <dialog id="picker">
+    <div class="picker-head">
+      <input id="search" type="search" placeholder="Search currency or country" autocomplete="off">
+      <button id="picker-close" class="text-btn">Done</button>
+    </div>
+    <ul id="picker-list"></ul>
+  </dialog>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
