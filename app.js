@@ -139,18 +139,6 @@ function setStatus(text, stale = false) {
   el.classList.toggle('stale', stale);
 }
 
-// Fixed color per currency, so a row keeps its color wherever it sits in the list.
-const HUES = {
-  VND: 350, USD: 145, MYR: 45, PHP: 215, SGD: 15, EUR: 255,
-  THB: 285, JPY: 320, GBP: 190, KRW: 175, AUD: 100, IDR: 75,
-};
-function hueFor(code) {
-  if (code in HUES) return HUES[code];
-  let h = 0;
-  for (const c of code) h = (h * 31 + c.charCodeAt(0)) % 360;
-  return h;
-}
-
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const rowEls = new Map(); // rows are kept and updated in place so animations can run
 
@@ -158,7 +146,6 @@ function createRow(code) {
   const row = document.createElement('div');
   row.className = 'row entering';
   row.dataset.code = code;
-  row.style.setProperty('--h', hueFor(code));
   row.innerHTML = `
     <span class="flag">${flagFor(code)}</span>
     <div class="meta">
@@ -229,9 +216,6 @@ function render() {
       tweenTo(valueEl, convert(amount, state.active, code), code);
     }
   });
-
-  // The background blobs take on the colors of your top currencies.
-  document.querySelectorAll('.blob').forEach((b, i) => b.style.setProperty('--h', hueFor(codes[i % codes.length])));
 
   document.getElementById('clear-key').textContent = state.expr ? 'C' : 'AC';
   document.body.classList.toggle('editing', state.editing);

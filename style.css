@@ -1,48 +1,16 @@
-/* Fallback rounded font; iPhones use SF Pro Rounded via ui-rounded. */
-@font-face {
-  font-family: 'Fredoka';
-  font-weight: 600;
-  font-display: swap;
-  src: url('fonts/fredoka-latin-600-normal.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Fredoka';
-  font-weight: 700;
-  font-display: swap;
-  src: url('fonts/fredoka-latin-700-normal.woff2') format('woff2');
-}
-
 :root {
-  --bg: #eef0ff;
-  --text: #15142b;
-  --text-soft: rgba(21, 20, 43, .62);
-  --glass: rgba(255, 255, 255, .42);
-  --glass-strong: rgba(255, 255, 255, .62);
-  --edge: rgba(255, 255, 255, .85);
-  --edge-low: rgba(255, 255, 255, .25);
-  --drop: rgba(40, 30, 90, .16);
-  --tint-alpha: .5;
-  --blob-l: 72%;
-  --blob-o: .38;
-  --op-h: 28;
-  --warn: #ff3b5c;
+  color-scheme: dark;
+  --bg: #0a0b14;
+  --text: #f5f6fa;
+  --text-soft: rgba(235, 238, 245, .58);
+  --glass: rgba(255, 255, 255, .06);
+  --glass-strong: rgba(255, 255, 255, .13);
+  --edge: rgba(255, 255, 255, .32);
+  --edge-low: rgba(255, 255, 255, .08);
+  --drop: rgba(0, 0, 0, .5);
+  --accent: 212 100% 58%;      /* one accent: iOS-style blue */
+  --warn: #ff453a;
   --spring: cubic-bezier(.34, 1.56, .64, 1);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0b0b1e;
-    --text: #ffffff;
-    --text-soft: rgba(255, 255, 255, .62);
-    --glass: rgba(255, 255, 255, .09);
-    --glass-strong: rgba(255, 255, 255, .16);
-    --edge: rgba(255, 255, 255, .38);
-    --edge-low: rgba(255, 255, 255, .08);
-    --drop: rgba(0, 0, 0, .45);
-    --tint-alpha: .42;
-    --blob-l: 42%;
-    --blob-o: .3;
-  }
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -52,8 +20,9 @@ html, body {
   height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family: ui-rounded, 'SF Pro Rounded', 'Fredoka', -apple-system, system-ui, sans-serif;
-  font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Helvetica Neue', 'Segoe UI', Roboto, sans-serif;
+  font-weight: 500;
+  -webkit-font-smoothing: antialiased;
   overscroll-behavior: none;
   -webkit-user-select: none;
   user-select: none;
@@ -72,19 +41,16 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* ---------- liquid background ---------- */
 .blobs { position: fixed; inset: 0; z-index: -1; overflow: hidden; filter: blur(60px); }
 .blob {
-  --h: 260;
   position: absolute;
   width: 70vmax;
   height: 70vmax;
   border-radius: 45% 55% 60% 40% / 50% 45% 55% 50%;
-  background: hsl(var(--h) 95% var(--blob-l));
-  opacity: var(--blob-o);
-  transition: background 1.2s ease;
+  opacity: .28;
   animation: drift 22s ease-in-out infinite alternate;
 }
-.blob:nth-child(1) { top: -25vmax; left: -20vmax; }
-.blob:nth-child(2) { top: 20vh; right: -35vmax; animation-duration: 27s; animation-delay: -8s; }
-.blob:nth-child(3) { bottom: -35vmax; left: -10vmax; animation-duration: 31s; animation-delay: -15s; }
+.blob:nth-child(1) { top: -25vmax; left: -20vmax; background: hsl(222 80% 42%); }
+.blob:nth-child(2) { top: 20vh; right: -35vmax; background: hsl(258 55% 38%); animation-duration: 27s; animation-delay: -8s; }
+.blob:nth-child(3) { bottom: -35vmax; left: -10vmax; background: hsl(200 70% 34%); animation-duration: 31s; animation-delay: -15s; }
 @keyframes drift {
   0% { transform: translate(0, 0) rotate(0deg) scale(1); }
   50% { transform: translate(8vmax, 6vmax) rotate(40deg) scale(1.12); }
@@ -139,7 +105,7 @@ header {
 .text-btn {
   border-radius: 999px;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 600;
   padding: 8px 16px;
   min-width: 64px;
   transition: transform .35s var(--spring);
@@ -149,7 +115,7 @@ header {
 .status {
   border-radius: 999px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500;
   padding: 8px 14px;
   color: var(--text-soft);
   white-space: nowrap;
@@ -170,7 +136,6 @@ header {
 }
 
 .row {
-  --h: 260;
   flex: none;
   display: flex;
   align-items: center;
@@ -178,22 +143,19 @@ header {
   border-radius: 26px;
   padding: 10px 16px 10px 10px;
   min-height: 68px;
-  background:
-    linear-gradient(120deg, hsl(var(--h) 95% 62% / var(--tint-alpha)), hsl(var(--h) 95% 70% / calc(var(--tint-alpha) * .35)) 70%),
-    linear-gradient(160deg, var(--glass-strong), var(--glass) 55%);
   transition: transform .45s var(--spring), box-shadow .45s ease, background .45s ease;
 }
 .row:active { transform: scale(.97); transition-duration: .1s; }
 
 .row.active {
   background:
-    linear-gradient(120deg, hsl(var(--h) 95% 60% / calc(var(--tint-alpha) + .3)), hsl(var(--h) 95% 70% / var(--tint-alpha)) 75%),
+    linear-gradient(120deg, hsl(var(--accent) / .28), hsl(var(--accent) / .08) 75%),
     linear-gradient(160deg, var(--glass-strong), var(--glass) 55%);
   box-shadow:
     inset 0 1px 0 var(--edge),
     inset 0 -1px 1px var(--edge-low),
-    0 0 0 2px hsl(var(--h) 95% 65% / .7),
-    0 14px 36px -8px hsl(var(--h) 90% 45% / .55);
+    0 0 0 1.5px hsl(var(--accent) / .85),
+    0 14px 36px -10px hsl(var(--accent) / .45);
   animation: jelly .6s var(--spring);
 }
 /* Squash-and-stretch when a row becomes the input. */
@@ -233,16 +195,18 @@ header {
 .row.active .flag { transform: scale(1.12) rotate(-8deg); }
 
 .meta { display: flex; flex-direction: column; min-width: 0; }
-.code { font-size: 18px; font-weight: 700; letter-spacing: .3px; }
+.code { font-size: 17px; font-weight: 600; letter-spacing: .2px; }
 .tag {
   display: none;
   margin-left: 6px;
   padding: 2px 8px;
   border-radius: 999px;
   font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .4px;
   vertical-align: 2px;
-  background: rgba(255, 255, 255, .55);
-  color: #15142b;
+  background: hsl(var(--accent) / .22);
+  color: hsl(212 100% 78%);
 }
 .row.is-local .tag { display: inline-block; animation: float 2.4s ease-in-out infinite; }
 @keyframes float {
@@ -253,7 +217,8 @@ header {
 .amount { margin-left: auto; text-align: right; min-width: 0; }
 .value {
   font-size: clamp(22px, 8vw, 32px);
-  font-weight: 700;
+  font-weight: 600;
+  letter-spacing: -.5px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   overflow: hidden;
@@ -296,10 +261,10 @@ body.editing .row:nth-child(even) { animation-delay: -.16s; }
   border-radius: 999px;
   padding: 7px 14px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
 }
 .row-actions .remove { background: var(--warn); color: #fff; }
-.row-actions .save { background: hsl(var(--h) 90% 55%); color: #fff; }
+.row-actions .save { background: hsl(var(--accent)); color: #fff; }
 .row.is-saved .save, .row:not(.is-saved) .remove { display: none; }
 
 /* ---------- keypad ---------- */
@@ -315,18 +280,18 @@ body.editing .row:nth-child(even) { animation-delay: -.16s; }
   aspect-ratio: 1.8;
   border-radius: 999px;
   font-size: 28px;
-  font-weight: 600;
+  font-weight: 400;
   transition: transform .45s var(--spring), filter .2s;
 }
 #keypad button:active { transform: scale(.88); filter: brightness(1.15); transition-duration: .08s; }
-#keypad .fn { font-size: 21px; color: var(--text-soft); }
+#keypad .fn { font-size: 20px; font-weight: 500; color: var(--text-soft); }
 #keypad .op {
   color: #fff;
-  font-size: 32px;
-  background: linear-gradient(160deg, hsl(var(--op-h) 100% 66% / .95), hsl(calc(var(--op-h) - 12) 100% 56% / .9));
-  border-color: hsl(var(--op-h) 100% 80% / .6);
+  font-size: 30px;
+  font-weight: 500;
+  background: linear-gradient(160deg, hsl(212 100% 64% / .95), hsl(var(--accent) / .9));
+  border-color: hsl(212 100% 80% / .45);
 }
-#keypad [data-k="="] { --op-h: 330; }
 
 /* ---------- currency picker ---------- */
 dialog {
@@ -339,11 +304,13 @@ dialog {
   color: var(--text);
   -webkit-backdrop-filter: blur(40px) saturate(180%);
   backdrop-filter: blur(40px) saturate(180%);
-  background: linear-gradient(160deg, var(--glass-strong), var(--glass));
+  background: linear-gradient(160deg, rgba(30, 33, 52, .9), rgba(14, 15, 26, .94));
+  border: 1px solid var(--edge-low);
+  box-shadow: inset 0 1px 0 var(--edge), 0 -20px 50px -10px rgba(0, 0, 0, .6);
 }
 dialog[open] { animation: sheet-up .5s var(--spring); }
 @keyframes sheet-up { from { transform: translateY(100%); } }
-dialog::backdrop { background: rgba(10, 10, 30, .25); }
+dialog::backdrop { background: rgba(0, 0, 0, .45); }
 .picker-head { display: flex; gap: 8px; padding: 14px; }
 #search {
   flex: 1;
