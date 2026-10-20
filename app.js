@@ -7,7 +7,7 @@ const REFRESH_AFTER_MS = 6 * 3600e3;
 const STALE_AFTER_MS = 3 * 86400e3;
 const GPS_TTL_MS = 12 * 3600e3;
 const DEFAULT_SAVED = ['VND', 'USD'];
-const APP_VERSION = 7; // shown in Edit mode; bump with the CACHE name in sw.js
+const APP_VERSION = 8; // shown in Edit mode; bump with the CACHE name in sw.js
 
 // ---------- storage (best effort: private mode can throw) ----------
 const store = {
@@ -195,6 +195,65 @@ function tweenTo(el, target, code) {
   el.classList.add('bump');
 }
 
+// ---------- bubble sizing ----------
+// Each bubble is sized to fit its own number: short amounts get small bubbles,
+// long ones big bubbles. If they don't all fit on screen, everything shrinks together.
+const BUBBLE = { font: 18, activeFont: 30, minD: 96, activeMinD: 140, minFont: 11 };
+let measurer;
+function textWidth(text, px) {
+  if (!measurer) {
+    measurer = document.createElement('span');
+    measurer.className = 'value measure';
+    document.body.appendChild(measurer);
+  }
+  measurer.style.fontSize = `${px}px`;
+  measurer.textContent = text;
+  return measurer.getBoundingClientRect().width;
+}
+
+// Height a centered flex-wrap of these diameters takes in a box of width W.
+function packedHeight(ds, W, gap) {
+  let h = 0, lineW = 0, lineH = 0, lines = 0;
+  for (const d of ds) {
+    if (lineW && lineW + gap + d > W) {
+      h += lineH; lines++; lineW = 0; lineH = 0;
+    }
+    lineW += (lineW ? gap : 0) + d;
+    lineH = Math.max(lineH, d);
+  }
+  return h + lineH + gap * lines;
+}
+
+function sizeBubbles() {
+  if (state.layout !== 'bubbles') return;
+  const rowsEl = document.getElementById('rows');
+  const rows = [...rowsEl.children].filter((r) => !r.classList.contains('leaving'));
+  const cs = getComputedStyle(rowsEl);
+  const W = rowsEl.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const H = rowsEl.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  const gap = 10;
+
+  const sizes = (scale) => rows.map((r) => {
+    const active = r.classList.contains('active');
+    const f = Math.max(BUBBLE.minFont, (active ? BUBBLE.activeFont : BUBBLE.font) * scale);
+    const minD = (active ? BUBBLE.activeMinD : BUBBLE.minD) * scale;
+    // The number sits across the middle, where the circle is widest (~84% usable).
+    const needed = state.editing ? 0 : textWidth(r._final ?? '', f) / 0.84 + 12;
+    return { r, f, d: Math.min(W, Math.max(minD, needed)) };
+  });
+
+  let scale = 1, out = sizes(scale);
+  while (scale > 0.45 && packedHeight(out.map((o) => o.d), W, gap) > H) {
+    scale *= 0.92;
+    out = sizes(scale);
+  }
+  for (const { r, f, d } of out) {
+    r.style.setProperty('--d', `${d}px`);
+    r.style.setProperty('--f', `${f}px`);
+    r.style.setProperty('--s', Math.max(0.6, scale));
+  }
+}
+
 function render() {
   const codes = visibleCurrencies();
   if (!codes.includes(state.active)) state.active = codes[0];
@@ -225,17 +284,24 @@ function render() {
     if (isActive) {
       cancelAnimationFrame(valueEl._raf);
       valueEl._n = amount;
-      setValue(valueEl, state.expr && !hasOp ? prettyExpr(state.expr) : format(amount, code));
+      row._final = state.expr && !hasOp ? prettyExpr(state.expr) : format(amount, code);
       exprEl.textContent = hasOp ? prettyExpr(state.expr) : '';
     } else {
       exprEl.textContent = '';
-      tweenTo(valueEl, convert(amount, state.active, code), code);
+      row._final = format(convert(amount, state.active, code), code);
     }
   });
 
-  rows.style.setProperty('--cols', codes.length >= 5 ? 3 : 2);
-  rows.classList.toggle('three', codes.length >= 5);
   document.body.classList.toggle('bubbles', state.layout === 'bubbles');
+  sizeBubbles();
+  // Set values after sizing, so each number is fitted to its bubble's final size.
+  for (const code of codes) {
+    const row = rowEls.get(code);
+    const valueEl = row.querySelector('.value');
+    if (code === state.active) setValue(valueEl, row._final);
+    else tweenTo(valueEl, convert(amount, state.active, code), code);
+  }
+
   document.getElementById('layout-btn').innerHTML = state.layout === 'bubbles' ? ICON_LIST : ICON_BUBBLES;
 
   document.getElementById('clear-key').textContent = state.expr ? 'C' : 'AC';
@@ -294,6 +360,8 @@ function openPicker() {
 }
 function closePicker() {
   if (picker.open) picker.close();
+  // iOS can leave the page shifted after the search keyboard closes.
+  window.scrollTo(0, 0);
 }
 
 function renderPicker(query) {
@@ -362,14 +430,6 @@ document.getElementById('rows').addEventListener('click', (e) => {
     const value = convert(evaluate(state.expr), state.active, code);
     state.expr = state.expr && Number.isFinite(value) ? toPlain(value, code) : '';
     state.active = code;
-    // In bubbles the active one grows, so let the others glide to their new spots.
-    if (state.layout === 'bubbles' && document.startViewTransition && !reducedMotion) {
-      document.startViewTransition(() => {
-        render();
-        refitAll();
-      });
-      return;
-    }
   }
   render();
 });
@@ -488,7 +548,10 @@ document.getElementById('search').oninput = (e) => renderPicker(e.target.value);
 document.getElementById('rates-status').onclick = () => refreshRates(true);
 
 // Re-fit numbers when the screen size changes (rotation, font load).
-const refitAll = () => document.querySelectorAll('.row .value').forEach((el) => setValue(el, el.textContent));
+const refitAll = () => {
+  sizeBubbles();
+  document.querySelectorAll('.row .value').forEach((el) => setValue(el, el.textContent));
+};
 addEventListener('resize', refitAll);
 document.fonts?.ready.then(() => dispatchEvent(new Event('resize')));
 
