@@ -7,7 +7,7 @@ const REFRESH_AFTER_MS = 6 * 3600e3;
 const STALE_AFTER_MS = 3 * 86400e3;
 const GPS_TTL_MS = 12 * 3600e3;
 const DEFAULT_SAVED = ['VND', 'USD'];
-const APP_VERSION = 8; // shown in Edit mode; bump with the CACHE name in sw.js
+const APP_VERSION = 9; // shown in Edit mode; bump with the CACHE name in sw.js
 
 // ---------- storage (best effort: private mode can throw) ----------
 const store = {
@@ -309,7 +309,7 @@ function render() {
   document.getElementById('edit-btn').textContent = state.editing ? 'Done' : 'Edit';
 
   if (state.editing) {
-    setStatus(`Drag to reorder · v${APP_VERSION}`);
+    setStatus(`Drag to reorder · v${APP_VERSION} ↻`);
   } else if (state.rates) {
     const age = Date.now() - state.rates.updated;
     const when = new Date(state.rates.updated).toLocaleDateString('en', { month: 'short', day: 'numeric' });
@@ -545,7 +545,19 @@ rowsEl.addEventListener('pointerup', endDrag);
 rowsEl.addEventListener('pointercancel', endDrag);
 document.getElementById('picker-close').onclick = closePicker;
 document.getElementById('search').oninput = (e) => renderPicker(e.target.value);
-document.getElementById('rates-status').onclick = () => refreshRates(true);
+document.getElementById('rates-status').onclick = async () => {
+  if (!state.editing) return refreshRates(true);
+  // In Edit mode the pill shows the version; tapping it checks for an update.
+  setStatus('Checking for updates…');
+  try {
+    await swReg?.update();
+  } catch {}
+  if (swReg?.installing || swReg?.waiting) setStatus('Updating…'); // reloads itself when ready
+  else {
+    setStatus(`Up to date · v${APP_VERSION}`);
+    setTimeout(render, 2000);
+  }
+};
 
 // Re-fit numbers when the screen size changes (rotation, font load).
 const refitAll = () => {
@@ -558,13 +570,16 @@ document.fonts?.ready.then(() => dispatchEvent(new Event('resize')));
 // Re-check location and rates whenever the app comes back to the foreground.
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
+  // iOS often resumes the app instead of relaunching it, so look for a new version here too.
+  swReg?.update().catch(() => {});
   detectLocalCurrency();
   render();
   refreshRates();
 });
 
+let swReg = null;
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => {});
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((r) => (swReg = r)).catch(() => {});
   // When a new version takes over, reload once so you see it right away.
   let reloaded = !navigator.serviceWorker.controller; // first install: nothing old to replace
   navigator.serviceWorker.addEventListener('controllerchange', () => {
