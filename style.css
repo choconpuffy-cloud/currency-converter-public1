@@ -30,9 +30,13 @@ html, body {
 body { background: transparent; }
 
 body {
-  position: fixed;  /* pinned to the screen; iOS can't leave it shrunk after the keyboard */
-  inset: 0;
-  height: auto;
+  /* --app-h is the real screen height on iOS home-screen apps, where the reported
+     height is short by the status bar and would leave a gap under the keypad. */
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--app-h, 100%);
   display: flex;
   flex-direction: column;
   padding: env(safe-area-inset-top) 14px env(safe-area-inset-bottom);
@@ -42,7 +46,7 @@ body {
 button { font: inherit; color: inherit; cursor: pointer; }
 
 /* ---------- liquid background ---------- */
-.blobs { position: fixed; inset: 0; z-index: -1; overflow: hidden; filter: blur(60px); }
+.blobs { position: fixed; top: 0; left: 0; right: 0; height: var(--app-h, 100%); z-index: -1; overflow: hidden; filter: blur(60px); }
 .blob {
   position: absolute;
   width: 70vmax;
