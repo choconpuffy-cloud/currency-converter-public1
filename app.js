@@ -7,7 +7,7 @@ const REFRESH_AFTER_MS = 6 * 3600e3;
 const STALE_AFTER_MS = 3 * 86400e3;
 const GPS_TTL_MS = 12 * 3600e3;
 const DEFAULT_SAVED = ['VND', 'USD'];
-const APP_VERSION = 10; // shown in Edit mode; bump with the CACHE name in sw.js
+const APP_VERSION = 11; // shown in Edit mode; bump with the CACHE name in sw.js
 
 // ---------- storage (best effort: private mode can throw) ----------
 const store = {
@@ -25,19 +25,6 @@ const store = {
     } catch {}
   },
 };
-
-// ---------- screen height ----------
-// iOS home-screen apps with a see-through status bar report a viewport that is short by
-// the status bar's height, leaving a strip under the keypad. There the app always fills
-// the screen, so use the real screen height instead.
-function fixAppHeight() {
-  if (!navigator.standalone) return;
-  const landscape = matchMedia('(orientation: landscape)').matches;
-  const h = landscape ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
-  document.documentElement.style.setProperty('--app-h', `${Math.max(h, innerHeight)}px`);
-}
-fixAppHeight();
-addEventListener('resize', fixAppHeight);
 
 // ---------- state ----------
 const state = {

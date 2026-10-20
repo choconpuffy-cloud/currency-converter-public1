@@ -1,5 +1,5 @@
 // Caches the app shell so it opens offline. Rates are cached by app.js in localStorage.
-const CACHE = 'cc-v10';
+const CACHE = 'cc-v11';
 const SHELL = [
   './', 'index.html', 'style.css', 'app.js', 'calc.js', 'currencies.js', 'tz-map.js',
   'manifest.webmanifest', 'icons/icon-180.png', 'icons/icon-512.png',
